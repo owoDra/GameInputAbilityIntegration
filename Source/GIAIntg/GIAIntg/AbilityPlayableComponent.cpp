@@ -6,6 +6,7 @@
 
 #include "GAEAbilitySystemComponent.h"
 
+#include "GFCPlayerController.h"
 #include "InitState/InitStateTags.h"
 
 #include "AbilitySystemGlobals.h"
@@ -21,112 +22,67 @@ UAbilityPlayableComponent::UAbilityPlayableComponent(const FObjectInitializer& O
 }
 
 
-bool UAbilityPlayableComponent::CanChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) const
-{
-	check(Manager);
-
-	auto* Pawn{ GetPawn<APawn>() };
-
-	/**
-	 * [InitState None] -> [InitState Spawned]
-	 */
-	if (!CurrentState.IsValid() && DesiredState == TAG_InitState_Spawned)
-	{
-		if (Pawn)
-		{
-			return true;
-		}
-	}
-
-	/**
-	 * [InitState Spawned] -> [InitState DataAvailable]
-	 */
-	else if (CurrentState == TAG_InitState_Spawned && DesiredState == TAG_InitState_DataAvailable)
-	{
-		// Check if it is not SimulationProxy
-
-		if (Pawn->GetLocalRole() == ROLE_SimulatedProxy)
-		{
-			return false;
-		}
-
-		// Check if it is not a bot player
-
-		const auto bIsLocallyControlled{ Pawn->IsLocallyControlled() };
-		const auto bIsBot{ Pawn->IsBotControlled() };
-
-		if (!bIsLocallyControlled || bIsBot)
-		{
-			return false;
-		}
-
-		// Check has valid input component
-
-		if (!Pawn->InputComponent)
-		{
-			return false;
-		}
-
-		return Manager->HasFeatureReachedInitState(Pawn, UGAEAbilitySystemComponent::NAME_ActorFeatureName, TAG_InitState_DataInitialized);
-	}
-
-	/**
-	 * [InitState DataAvailable] -> [InitState DataInitialized]
-	 */
-	else if (CurrentState == TAG_InitState_DataAvailable && DesiredState == TAG_InitState_DataInitialized)
-	{
-		if (AbilitySystemComponent && DefaultInputConfig)
-		{
-			return true;
-		}
-	}
-
-	/**
-	 * [InitState DataInitialized] -> [InitState GameplayReady]
-	 */
-	else if (CurrentState == TAG_InitState_DataInitialized && DesiredState == TAG_InitState_GameplayReady)
-	{
-		return true;
-	}
-
-	return false;
-}
-
-void UAbilityPlayableComponent::HandleChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState)
-{
-	UE_LOG(LogGIAI, Log, TEXT("[%s] Ability Playable Component InitState Reached: %s"),
-		GetOwner()->HasAuthority() ? TEXT("SERVER") : TEXT("CLIENT"), *DesiredState.GetTagName().ToString());
-
-	/**
-	 * [InitState Spawned] -> [InitState DataAvailable]
-	 */
-	if (CurrentState == TAG_InitState_Spawned && DesiredState == TAG_InitState_DataAvailable)
-	{
-		InitializeWithAbilitySystem();
-	}
-
-	/**
-	 * [InitState DataAvailable] -> [InitState DataInitialized]
-	 */
-	else if (CurrentState == TAG_InitState_DataAvailable && DesiredState == TAG_InitState_DataInitialized)
-	{
-		InitializePlayerInput();
-	}
-}
-
 void UAbilityPlayableComponent::OnActorInitStateChanged(const FActorInitStateChangedParams& Params)
 {
+	Super::OnActorInitStateChanged(Params);
+
 	// Wait for initialization of AbilitySystemCompoenet
 
 	if (Params.FeatureName == UGAEAbilitySystemComponent::NAME_ActorFeatureName)
 	{
-		if ((Params.FeatureState == TAG_InitState_DataInitialized) || (Params.FeatureState == TAG_InitState_GameplayReady))
+		if (Params.FeatureState == TAG_InitState_DataInitialized)
 		{
 			CheckDefaultInitialization();
 		}
 	}
 }
 
+
+bool UAbilityPlayableComponent::CanChangeInitStateToDataInitialized(UGameFrameworkComponentManager* Manager) const
+{
+	if (!DefaultInputConfig)
+	{
+		return false;
+	}
+
+	if (!Manager->HasFeatureReachedInitState(GetOwner(), UGAEAbilitySystemComponent::NAME_ActorFeatureName, TAG_InitState_DataInitialized))
+	{
+		return false;
+	}
+
+	return true;
+}
+
+void UAbilityPlayableComponent::HandleChangeInitStateToDataInitialized(UGameFrameworkComponentManager* Manager)
+{
+	InitializeWithAbilitySystem();
+
+	if (auto* Pawn{ GetPawnChecked<APawn>() })
+	{
+		InitializePlayerInput(Pawn->GetController());
+	}
+}
+
+
+void UAbilityPlayableComponent::InitializePlayerInput(AController* Controller)
+{
+	if (auto* PC{ Cast<AGFCPlayerController>(Controller) })
+	{
+		PC->OnPostProcessInput.AddUObject(this, &ThisClass::ProcessAbilityInput);
+	}
+
+	Super::InitializePlayerInput(Controller);
+}
+
+void UAbilityPlayableComponent::UninitializePlayerInput(AController* Controller)
+{
+	if (auto* PC{ Cast<AGFCPlayerController>(Controller) })
+	{
+		PC->OnPostProcessInput.RemoveAll(this);
+	}
+
+	Super::UninitializePlayerInput(Controller);
+}
 
 void UAbilityPlayableComponent::InitializeWithAbilitySystem()
 {
@@ -151,8 +107,6 @@ void UAbilityPlayableComponent::InitializeWithAbilitySystem()
 		UE_LOG(LogGIAI, Error, TEXT("Ability Playable Component: Cannot initialize Ability Playable component for owner [%s] with NULL ability system."), *GetNameSafe(Pawn));
 		return;
 	}
-
-	CheckDefaultInitialization();
 }
 
 void UAbilityPlayableComponent::UninitializeFromAbilitySystem()
@@ -160,6 +114,14 @@ void UAbilityPlayableComponent::UninitializeFromAbilitySystem()
 	AbilitySystemComponent = nullptr;
 }
 
+
+void UAbilityPlayableComponent::ProcessAbilityInput(const float DeltaTime, const bool bGamePaused)
+{
+	if (auto* GAEASC{ Cast<UGAEAbilitySystemComponent>(AbilitySystemComponent) })
+	{
+		GAEASC->ProcessAbilityInput(DeltaTime, bGamePaused);
+	}
+}
 
 void UAbilityPlayableComponent::TagInput_PressedExtra(FGameplayTag InputTag)
 {

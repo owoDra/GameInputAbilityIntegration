@@ -25,6 +25,7 @@ public class GIAIntg : ModuleRules
                 "Engine",
                 "ModularGameplay",
                 "GameplayAbilities",
+                "EnhancedInput",
             }
         );
 
