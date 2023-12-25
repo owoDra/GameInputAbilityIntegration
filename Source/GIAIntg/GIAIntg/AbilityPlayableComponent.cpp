@@ -6,7 +6,7 @@
 
 #include "GAEAbilitySystemComponent.h"
 
-#include "GFCPlayerController.h"
+#include "Actor/GFCPlayerController.h"
 #include "InitState/InitStateTags.h"
 
 #include "AbilitySystemGlobals.h"
