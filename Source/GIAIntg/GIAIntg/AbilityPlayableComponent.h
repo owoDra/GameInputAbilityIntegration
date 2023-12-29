@@ -20,6 +20,9 @@ class GIAINTG_API UAbilityPlayableComponent : public UPlayableComponent
 public:
 	UAbilityPlayableComponent(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
+protected:
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
 public:
 	virtual void OnActorInitStateChanged(const FActorInitStateChangedParams& Params) override;
 

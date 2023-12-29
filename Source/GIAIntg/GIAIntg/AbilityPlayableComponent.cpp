@@ -22,6 +22,14 @@ UAbilityPlayableComponent::UAbilityPlayableComponent(const FObjectInitializer& O
 }
 
 
+void UAbilityPlayableComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	UninitializeFromAbilitySystem();
+
+	Super::EndPlay(EndPlayReason);
+}
+
+
 void UAbilityPlayableComponent::OnActorInitStateChanged(const FActorInitStateChangedParams& Params)
 {
 	Super::OnActorInitStateChanged(Params);
