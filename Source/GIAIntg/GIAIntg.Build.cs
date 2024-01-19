@@ -20,12 +20,9 @@ public class GIAIntg : ModuleRules
         PublicDependencyModuleNames.AddRange(
             new string[]
             {
-                "Core",
-                "CoreUObject",
-                "Engine",
-                "ModularGameplay",
+                "Core", "CoreUObject", "Engine",
+
                 "GameplayAbilities",
-                "EnhancedInput",
             }
         );
 
@@ -33,9 +30,7 @@ public class GIAIntg : ModuleRules
         PrivateDependencyModuleNames.AddRange(
             new string[]
             {
-                "GFCore",
-                "GIExt",
-                "GAExt",
+                "GEInput", "GAExt",
             }
         );
     }
