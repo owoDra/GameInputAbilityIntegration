@@ -4,5 +4,3 @@
 https://github.com/owoDra/GameInputExtension
 
 https://github.com/owoDra/GameAbilityExtension
-
-## [OUTDATED] Game Input Extension から Game Input Core に切り替わるため
